@@ -1,9 +1,5 @@
 #define __CL_ENABLE_EXCEPTIONS
 #include <CL/cl.h>
-#ifdef OPENCL_RUNTIME
-#include <libclew/ocl_init.h>
-#endif
-
 #include <vector>
 #include <sstream>
 #include <iostream>
@@ -14,6 +10,7 @@
 #include <iterator>
 #include <iomanip>
 #include <memory>
+
 #include "cl.hpp"
 
 std::unique_ptr<double[]> read_matrix(size_t matrix_size, std::ifstream& is)
@@ -29,13 +26,6 @@ std::unique_ptr<double[]> read_matrix(size_t matrix_size, std::ifstream& is)
 
 int main()
 {
-#ifdef OPENCL_RUNTIME
-	if (!ocl_init())
-	{
-		std::cerr << ("Can't init OpenCL driver!") << "\n";
-		return 1;
-	}
-#endif
 #ifdef DEBUG
 	std::ofstream input_fill("input.txt");
 	int N = 1023;
@@ -59,7 +49,7 @@ int main()
 		input_fill << "\n";
 	}
 	input_fill.flush();
-#endif
+#endif 
 	std::ifstream input("input.txt");
 	std::ofstream output("output.txt");
 	int n, m;
@@ -69,19 +59,15 @@ int main()
 	auto first_matrix = read_matrix(first_matrix_size, input);
 	auto second_matrix = read_matrix(second_matrix_size, input);
 	std::unique_ptr<double[]> result(new double[first_matrix_size]());
-
 	std::vector<cl::Platform> platforms;
 	std::vector<cl::Device> devices;
 	std::vector<cl::Kernel> kernels;
 	try
 	{
 		cl::Platform::get(&platforms);
-#ifdef DEBUG
-		platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
-#else 
+
 		platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
-#endif
-		cl::Context context(devices);
+         	cl::Context context(devices);
 		cl::CommandQueue queue(context, devices[0]);
 		std::ifstream cl_file("matrix_convolution.cl");
 		std::string cl_string(std::istreambuf_iterator<char>(cl_file), (std::istreambuf_iterator<char>()));
@@ -91,6 +77,7 @@ int main()
 		const size_t block_size = 16;
 		const auto block_size_option = "-D BLOCK_SIZE=" + std::to_string(block_size);
 		program.build(devices, block_size_option.c_str());
+
 		cl::Buffer dev_first_matrix(context, CL_MEM_READ_ONLY, sizeof(double) * first_matrix_size);
 		cl::Buffer dev_second_matrix(context, CL_MEM_READ_ONLY, sizeof(double) * second_matrix_size);
 		cl::Buffer dev_result(context, CL_MEM_WRITE_ONLY, sizeof(double) * first_matrix_size);
